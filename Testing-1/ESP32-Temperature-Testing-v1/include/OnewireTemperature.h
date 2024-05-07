@@ -1,6 +1,6 @@
 class TemperatureSensor {
 private:
-    static const int tempSenseIterations = 40; // number of measurements to take
+    static const int tempSenseIterations = 10; // number of measurements to take
     OneWire oneWire;
     DallasTemperature sensors;
     float analogBuffer[tempSenseIterations]; // Static array for buffer
