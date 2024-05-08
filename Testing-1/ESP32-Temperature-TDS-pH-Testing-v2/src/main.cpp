@@ -5,12 +5,18 @@
 #include <DallasTemperature.h>
 #include "OnewireTemperature.h"  // Temperature Sensor Class
 #include "AnalogTds.h" // TDS sensor class
+#include "AnalogpH.h" // pH sensor class
 
 // Pin definitions
 #define ONE_WIRE_BUS 2           // Data wire is plugged into port 2
-#define TEMP_GPIO_PIN 15              // Power Port is GPIO PIN 15
+#define TEMP_GPIO_PIN 17              // Power Port is GPIO PIN 17
 #define TDS_SENSOR_BUS 4   // Data Wire is plugged into port 4
-#define TDS_GPIO_PIN 16             // Power Port is GPIO PIN 15
+#define TDS_GPIO_PIN 16             // Power Port is GPIO PIN 16
+#define PH_SENSOR_BUS 15      // Data Wire is plugged into port 15
+#define PH_GPIO_PIN 18    // Power Port is GPIO PIN 18
+
+// pH Offset
+#define Offset 0.37             // Deviation compensation for pH sensor
 
 // Sampling and sending intervals
 #define samplingInterval 30000   // Interval for sampling (milliseconds)
@@ -35,17 +41,21 @@ enum SensorState {
 
 SensorState tempSensorState = SENSOR_OFF;
 SensorState tdsSensorState = SENSOR_OFF;
-
+SensorState pHSensorState = SENSOR_OFF;
 unsigned long tempStateStartTime = 0;
 unsigned long tdsStateStartTime = 0;
+unsigned long pHStateStartTime = 0;
 
 // Function prototypes
 void startTemperatureSensor();
 void stopTemperatureSensor();
 void startTDSSensor();
 void stopTDSSensor();
+void startPHSensor();
+void stopPHSensor();
 void temperatureSensorStateMachine();
 void tdsSensorStateMachine();
+void pHSensorStateMachine();
 
 // Create an instance of TemperatureSensor (onewire PIN, number of samples)
 // Using the default value (10) for tempSenseIterations
@@ -61,6 +71,13 @@ TdsSensor tdsSensorInstance(3.3, 0.02, 25.0, 1024.0, TDS_SENSOR_BUS);
 
 // Providing a custom value for tdsSenseIterations (e.g., 15)
 // TdsSensor tdsSensorInstance(3.3, 0.02, 25.0, 1024.0, TDS_SENSOR_BUS, 15);
+
+// Create an instance of pHSensor (offset, GPIO pin, number of samples)
+// Using the default value (40) for pHSenseIterations
+pHSensor phSensor(Offset, PH_SENSOR_BUS);
+
+// Providing a custom value for pHSenseIterations (e.g., 60)
+// pHSensor phSensor(Offset, PH_SENSOR_BUS, 60);
 
 void setup() {
   Serial.begin(9600);                        // Start serial port for debugging
