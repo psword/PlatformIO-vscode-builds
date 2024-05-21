@@ -1,54 +1,98 @@
-#include <numeric> // Include the <numeric> header for std::accumulate
+#include <algorithm>  // Include for std::copy and std::sort
+#include <DFRobot_PH.h>  // DFRobot pH Library v2.0
+#include <EEPROM.h>  // EEPROM library
 
-class pHSensor {
+class pHSensor
+{
 private:
     // Constants
-    const float offset; // Define the pH offset
-    const int SENSOR_INPUT_PIN; // Define the input PIN
-    const int pHSenseIterations; // Number of pH measurements to take
+    int SENSOR_INPUT_PIN;          // Define the input PIN to read
+    const int pHSenseIterations;   // Number of pH measurements to take
+    const float referenceTemp;     // Reference temperature for the pH sensor
+    const float maxADCValue;       // ADC bits
+    float VC;                      // The voltage on the pin powering the sensor (in 1000 units)
+    float *analogBuffer;           // Dynamic array for buffer
+    int analogBufferIndex;         // Index for circular buffer
+    unsigned long lastReadTime;    // To store the last read time
+    const unsigned long readDelay; // Delay between reads (milliseconds)
 
-    float* analogBuffer; // Dynamic array for buffer
-    int analogBufferIndex; // Index for circular buffer
-    // pH sampling function
-    
+    DFRobot_PH ph;  // pH sensor object
+
 public:
     // Constructor
-    pHSensor(float pHManualOffset, int inputPin, int iterations = 40) 
-    : offset(pHManualOffset), SENSOR_INPUT_PIN(inputPin), pHSenseIterations(iterations), analogBufferIndex(0) {
+    pHSensor(float voltageConstant, float refTemp, float maxADC, int inputPin, int iterations = 40, unsigned long readGap = 250)
+        : VC(voltageConstant), referenceTemp(refTemp), maxADCValue(maxADC), SENSOR_INPUT_PIN(inputPin), pHSenseIterations(iterations), readDelay(readGap), lastReadTime(0), analogBufferIndex(0)
+    {
         // Allocate memory for the analog buffer
         analogBuffer = new float[pHSenseIterations];
+        if (analogBuffer == nullptr) {
+            Serial.println("Failed to allocate memory for analog buffer");
+        }
     }
-    
+
     // Destructor
-    ~pHSensor() {
+    ~pHSensor()
+    {
         // Deallocate memory for the analog buffer
         delete[] analogBuffer;
     }
 
     // Function to read analog value from pH sensor and store in buffer
-    void analogReadAction() {
-        float sensorValue = analogRead(SENSOR_INPUT_PIN);
-        analogBuffer[analogBufferIndex] = sensorValue;
-        analogBufferIndex = (analogBufferIndex + 1) % pHSenseIterations; // Circular buffer       
+    void analogReadAction()
+    {
+        unsigned long currentMillis = millis(); // Assign current millis value for timer
+
+        // Check if the delay gap has passed
+        if (currentMillis - lastReadTime >= readDelay)
+        {
+            // Read the appropriate ADC channel based on SENSOR_INPUT_PIN
+            Serial.println("Reading the value");
+            float sensorValue = analogRead(SENSOR_INPUT_PIN);
+            Serial.println(sensorValue);
+
+            // Store the voltage value in the circular buffer
+            analogBuffer[analogBufferIndex] = sensorValue;
+
+            // Update the buffer index
+            analogBufferIndex = (analogBufferIndex + 1) % pHSenseIterations;
+
+            // Update the last read time
+            lastReadTime = currentMillis;
+        }
+    }
+
+    // Function to compute median reading from buffer
+    float computeMedian()
+    {
+        float sortedBuffer[pHSenseIterations]; // Temporary array for sorting
+        std::copy(analogBuffer, analogBuffer + pHSenseIterations, sortedBuffer);
+        std::sort(sortedBuffer, sortedBuffer + pHSenseIterations);
+
+        if (pHSenseIterations % 2 == 0)
+        {
+            float median = (sortedBuffer[pHSenseIterations / 2 - 1] + sortedBuffer[pHSenseIterations / 2]) / 2.0f;
+            return median;
+        }
+        else
+        {
+            return sortedBuffer[pHSenseIterations / 2];
+        }
+    }
+
+    // Function to adjust pH based on temperature
+    float adjustpH(float voltage, float temperature)
+    {
+        float pHValue = ph.readPH(voltage, temperature);  // Convert voltage to pH with temp adjustment
+        return pHValue;
     }
 
     // Function to compute pH value
-    float computePHValue() {
+    float computePHValue(float temperature)
+    {
         // Perform pH sensing operations
         analogReadAction();
-        float voltage = averageArray(analogBuffer, pHSenseIterations) * 5.0 / 1024;
-        return 3.5 * voltage + offset; // Assuming offset is defined somewhere
-    }
-
-    // Function to average an array
-    double averageArray(float* arr, int number) {
-        if (number <= 0) {
-            // Handle error condition
-            return 0;
-        }
-        // Sum up the elements of the array using std::accumulate
-        double sum = std::accumulate(arr, arr + number, 0.0);
-        // Calculate the average
-        return sum / number;
+        float medianSensorValue = computeMedian();
+        float averageVoltage = medianSensorValue * VC / maxADCValue;
+        return adjustpH(averageVoltage, temperature);
     }
 };
