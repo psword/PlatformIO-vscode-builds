@@ -11,6 +11,9 @@ public:
     TemperatureSensor(int oneWirePin, int iterations = 10) : oneWire(oneWirePin), sensors(&oneWire), tempSenseIterations(iterations), analogBufferIndex(0) {
         // Allocate memory for the analog buffer
         analogBuffer = new float[tempSenseIterations];
+        if (analogBuffer == nullptr) {
+            Serial.println("Failed to allocate memory for analog buffer");
+        }
     }
 
     // Destructor
