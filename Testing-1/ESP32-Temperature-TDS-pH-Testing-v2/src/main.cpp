@@ -13,18 +13,29 @@ Intended for ESP32 Board */
 #include "AnalogpH.h"           // pH sensor class
 
 // Pin definitions
-#define ONE_WIRE_BUS 2     // Data wire is plugged into port 2
-#define TEMP_GPIO_PIN 17   // Power Port is GPIO PIN 17
-#define TDS_SENSOR_BUS 4   // Data Wire is plugged into port 4
-#define TDS_GPIO_PIN 16    // Power Port is GPIO PIN 16
-#define PH_GPIO_PIN 15     // Power Port is GPIO PIN 15
-#define PH_SENSOR_BUS 13   // The ADC Pin for the ADS1115 (must be 0, 1, 2, 3)
+#define ONE_WIRE_BUS 2   // Data wire is plugged into port 2
+#define TEMP_GPIO_PIN 17 // Power Port is GPIO PIN 17
+#define TDS_SENSOR_BUS 4 // Data Wire is plugged into port 4
+#define TDS_GPIO_PIN 16  // Power Port is GPIO PIN 16
+#define PH_GPIO_PIN 15   // Power Port is GPIO PIN 15
+#define PH_SENSOR_BUS 13 // The ADC Pin for the ADS1115 (must be 0, 1, 2, 3)
 
 // Global variables
-float adjustedTemp = 0;    // Variable to store temperature
-float adjustedTds = 0;     // Variable to store TDS
-float adjustedpH = 0;      // Variable to store pH
-bool codeExecuted = false; // Flag for code execution
+float adjustedTemp = 0;        // Variable to store temperature
+float adjustedTds = 0;         // Variable to store TDS
+float adjustedpH = 0;          // Variable to store pH
+float sendFloatTempValue;      // Float value to send
+float sendFloatTdsValue;       // Float value to send
+float sendFloatpHValue;        // Float value to send
+bool codeExecuted = false;     // Flag for code execution
+bool sendMessageFlag1 = false; // Flag to indicate relay message
+bool sendMessageFlag2 = false; // Flag to indicate relay message
+bool sendMessageFlag3 = false; // Flag to indicate relay message
+uint8_t messageType1 = 0x01;   // Message type identifier
+uint8_t messageType2 = 0x02;   // Message type identifier
+uint8_t messageType3 = 0x03;   // Message type identifier
+uint8_t messageLength = 8;     // Length of message to transmit
+uint8_t slaveAddress = 0x08;   // I2C Slave address
 
 // Define sampling intervals for sensors
 #define SAMPLING_INTERVAL 60000 // Interval for sampling (milliseconds)
@@ -48,8 +59,6 @@ unsigned long tdsStateStartTime = 0;
 unsigned long pHStateStartTime = 0;
 
 // Function prototypes
-void calibrationTimer(unsigned long stabilizationDelay, int iterations, unsigned long interval);
-void enableCalibrationMode();
 void startTemperatureSensor();
 void stopTemperatureSensor();
 void startTDSSensor();
@@ -59,6 +68,7 @@ void stopPHSensor();
 void temperatureSensorStateMachine();
 void tdsSensorStateMachine();
 void pHSensorStateMachine();
+void transmitSlave();
 
 // Create an instance of TemperatureSensor (onewire PIN, number of samples)
 // Measurement time ~1.00 seconds due to onewire library
@@ -98,88 +108,34 @@ void setup()
     pinMode(TDS_SENSOR_BUS, INPUT);    // Set GPIO PIN as INPUT for reading data
     pinMode(PH_SENSOR_BUS, INPUT);     // Set GPIO PIN as INPUT for reading data
     EEPROM.begin(32);                  // Needed for eeprom
-    Wire.begin();                      // Join I2C bus as master device (message sender)
+    Wire.begin(slaveAddress);          // Join I2C bus as master device (message sender)
     tempSensorInstance.beginSensors(); // Start up the temperature sensor library
     pHSensorInstance.beginSensors();   // Start up the pH sensor library
 
     // Perform initialization if code has not been executed before
-    
+
     if (!codeExecuted)
     {
-        /*
-        Currently the calibration function allows us to enter calibration mode, but it will not
-        read the pH value and save it to EEPROM correctly. Leave commented out until fixed. It may be removed from
-        the code block if it cannot be implemented in the sketch in the way we are attempting to do so.
-        
-        For now, the appropriate method for calibration is to load the default calibration sketch and write to EEPROM.
-        */ 
-        // Use the formula to determine length of time for calibration
-        // Total Calibration Time in ms = Initial Stabilization Delay + (Iterations * Interval)
-        // calibrationTimer(stabilization, interations, interval) -> see the function
-        // calibrationTimer(2000, 298000, 1); // Countdown timer for testing
         delay(10000);
         Serial.println("Setup Complete."); // Print setup message to serial monitor
-        
-        codeExecuted = true;               // Set code execution flag
+
+        codeExecuted = true; // Set code execution flag
     }
 }
 
 void loop()
 {
-    // Sampling temperature at regular intervals
+    // Sampling temperature at regular intervals begins the process
     static unsigned long tempSamplingTime = millis();
     if (millis() - tempSamplingTime > SAMPLING_INTERVAL)
     {
         startTemperatureSensor();
         tempSamplingTime = millis();
     }
-
-    // Sampling TDS after temperature sensor has finished
+    // Execute the state machine operations
     temperatureSensorStateMachine();
     tdsSensorStateMachine();
-    pHSensorStateMachine(); // Add this to ensure pH sensor state machine is processed
-}
-
-// Function to implement a countdown timer for testing timers
-void calibrationTimer(unsigned long stabilizationDelay, int iterations, unsigned long interval)
-{
-    unsigned long startTime = millis();
-    int count = 0;
-    Serial.print("Total Calibration Time: ");
-    Serial.print((stabilizationDelay + (iterations * interval))/(1000 * 60));
-    Serial.println(" minutes");
-    digitalWrite(TEMP_GPIO_PIN, HIGH); // Power on the temperature sensor
-    digitalWrite(PH_GPIO_PIN, HIGH);   // Power on the pH sensor
-    delay(stabilizationDelay); // Allow sensors to stabilize
-
-    while (count < iterations)
-    {
-        unsigned long currentTime = millis();
-        if (currentTime - startTime >= interval)
-        {
-            enableCalibrationMode();
-            startTime = currentTime; // Reset the start time
-            count++;
-        }
-    }
-
-    digitalWrite(TEMP_GPIO_PIN, LOW); // Power off the sensor
-    digitalWrite(PH_GPIO_PIN, LOW);   // Power off the sensor
-}
-
-void enableCalibrationMode()
-{
-    static unsigned long lastReadTime = 0;
-    unsigned long currentTime = millis();
-
-	if (currentTime - lastReadTime > 1000) //time interval: 1s
-    {
-        adjustedTemp = tempSensorInstance.readAndAdjustTemp(); // Read and adjust temperature
-        adjustedpH = pHSensorInstance.computePHValue(adjustedTemp);  // Read and adjust pH
-        lastReadTime = currentTime;
-    }
-    float getAverageVoltage = pHSensorInstance.getAverageVoltage();
-    pHSensorInstance.calibrateSensors(getAverageVoltage, adjustedTemp);
+    pHSensorStateMachine();
 }
 
 void startTemperatureSensor()
@@ -246,6 +202,9 @@ void temperatureSensorStateMachine()
     case SENSOR_SHUTDOWN:
         // Power off the sensor
         digitalWrite(TEMP_GPIO_PIN, LOW);
+        sendFloatTempValue = adjustedTemp;
+        sendMessageFlag1 = true;
+        transmitSlave();
         stopTemperatureSensor(); // Reset to initial state
         startTDSSensor();
         break;
@@ -281,18 +240,21 @@ void tdsSensorStateMachine()
         {
             adjustedTds = tdsSensorInstance.readAndAdjustTds(adjustedTemp);
             // Serial.println(adjustedTds); // Uncomment for debugging
-            lastReadTime = millis();     // Update the last read time
+            lastReadTime = millis(); // Update the last read time
         }
 
         if (millis() - tdsStateStartTime >= READING_DURATION)
         {                                     // Waiting period
-            Serial.println(adjustedTds); // Uncomment for debugging
+            Serial.println(adjustedTds);      // Uncomment for debugging
             tdsSensorState = SENSOR_SHUTDOWN; // Move to next state
         }
         break;
     case SENSOR_SHUTDOWN:
         // Power off the sensor
         digitalWrite(TDS_GPIO_PIN, LOW);
+        sendFloatTdsValue = adjustedTds;
+        sendMessageFlag2 = true;
+        transmitSlave();
         stopTDSSensor(); // Reset to initial state
         startPHSensor();
         break;
@@ -329,18 +291,73 @@ void pHSensorStateMachine()
         {
             adjustedpH = pHSensorInstance.computePHValue(adjustedTemp);
             // Serial.println(adjustedpH); // Uncomment for debugging
-            lastReadTime = millis();    // Update the last read time
+            lastReadTime = millis(); // Update the last read time
         }
         if (millis() - pHStateStartTime >= READING_DURATION) // Uncomment when not calibrating
-        {                                    // Waiting period
-            Serial.println(adjustedpH); // Uncomment for debugging
-            pHSensorState = SENSOR_SHUTDOWN; // Move to next state
+        {                                                    // Waiting period
+            Serial.println(adjustedpH);                      // Uncomment for debugging
+            pHSensorState = SENSOR_SHUTDOWN;                 // Move to next state
         }
         break;
     case SENSOR_SHUTDOWN:
         // Power off the sensor
         digitalWrite(PH_GPIO_PIN, LOW);
+        sendFloatpHValue = adjustedpH;
+        sendMessageFlag3 = true;
+        transmitSlave();
         stopPHSensor(); // Reset to initial state
         break;
+    }
+}
+
+void transmitSlave()
+{
+    if (sendMessageFlag1)
+    {
+        Wire.beginTransmission(slaveAddress); // Start I2C transmission with slave
+        Wire.write(messageType1);             // Send message type
+        Wire.write(messageLength);            // Send message length
+
+        uint8_t byteArray[sizeof(float)];                // Create byte array to store temperature
+        memcpy(byteArray, &adjustedTemp, sizeof(float)); // Copy temperature value to byte array
+
+        for (int i = 0; i < sizeof(float); i++)
+        {
+            Wire.write(byteArray[i]); // Send temperature byte by byte
+        }
+        sendMessageFlag3 = false;
+        Wire.endTransmission(); // End transmission
+    }
+    if (sendMessageFlag2)
+    {
+        Wire.beginTransmission(slaveAddress); // Start I2C transmission with slave
+        Wire.write(messageType2);             // Send message type
+        Wire.write(messageLength);            // Send message length
+
+        uint8_t byteArray[sizeof(float)];               // Create byte array to store tds
+        memcpy(byteArray, &adjustedTds, sizeof(float)); // Copy tds value to byte array
+
+        for (int i = 0; i < sizeof(float); i++)
+        {
+            Wire.write(byteArray[i]); // Send tds byte by byte
+        }
+        sendMessageFlag3 = false;
+        Wire.endTransmission(); // End transmission
+    }
+    if (sendMessageFlag3)
+    {
+        Wire.beginTransmission(slaveAddress); // Start I2C transmission with slave
+        Wire.write(messageType3);             // Send message type
+        Wire.write(messageLength);            // Send message length
+
+        uint8_t byteArray[sizeof(float)];              // Create byte array to store ph
+        memcpy(byteArray, &adjustedpH, sizeof(float)); // Copy ph value to byte array
+
+        for (int i = 0; i < sizeof(float); i++)
+        {
+            Wire.write(byteArray[i]); // Send ph byte by byte
+        }
+        sendMessageFlag3 = false;
+        Wire.endTransmission(); // End transmission
     }
 }
