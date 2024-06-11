@@ -108,7 +108,7 @@ void setup()
     pinMode(TDS_SENSOR_BUS, INPUT);    // Set GPIO PIN as INPUT for reading data
     pinMode(PH_SENSOR_BUS, INPUT);     // Set GPIO PIN as INPUT for reading data
     EEPROM.begin(32);                  // Needed for eeprom
-    Wire.begin(slaveAddress);          // Join I2C bus as master device (message sender)
+    Wire.begin();          // Join I2C bus as master device (message sender)
     tempSensorInstance.beginSensors(); // Start up the temperature sensor library
     pHSensorInstance.beginSensors();   // Start up the pH sensor library
 
@@ -273,7 +273,6 @@ void pHSensorStateMachine()
     case SENSOR_INIT:
         // Initialize sensor
         pHStateStartTime = millis();
-        // Serial.println("Applied Mosfet Power."); // Uncomment for debugging
         digitalWrite(PH_GPIO_PIN, HIGH); // Power on the sensor
         pHSensorState = SENSOR_STABILIZE;
         break;
@@ -293,7 +292,7 @@ void pHSensorStateMachine()
             // Serial.println(adjustedpH); // Uncomment for debugging
             lastReadTime = millis(); // Update the last read time
         }
-        if (millis() - pHStateStartTime >= READING_DURATION) // Uncomment when not calibrating
+        if (millis() - pHStateStartTime >= READING_DURATION) 
         {                                                    // Waiting period
             Serial.println(adjustedpH);                      // Uncomment for debugging
             pHSensorState = SENSOR_SHUTDOWN;                 // Move to next state
@@ -312,52 +311,44 @@ void pHSensorStateMachine()
 
 void transmitSlave()
 {
-    if (sendMessageFlag1)
+    // Helper function to transmit data
+    auto transmitData = [](uint8_t messageType, float data)
     {
         Wire.beginTransmission(slaveAddress); // Start I2C transmission with slave
-        Wire.write(messageType1);             // Send message type
+        Wire.write(messageType);              // Send message type
         Wire.write(messageLength);            // Send message length
 
-        uint8_t byteArray[sizeof(float)];                // Create byte array to store temperature
-        memcpy(byteArray, &adjustedTemp, sizeof(float)); // Copy temperature value to byte array
+        uint8_t byteArray[sizeof(float)];        // Create byte array to store data
+        memcpy(byteArray, &data, sizeof(float)); // Copy data value to byte array
 
         for (int i = 0; i < sizeof(float); i++)
         {
-            Wire.write(byteArray[i]); // Send temperature byte by byte
+            Wire.write(byteArray[i]); // Send data byte by byte
         }
-        sendMessageFlag3 = false;
-        Wire.endTransmission(); // End transmission
+        uint8_t error = Wire.endTransmission(); // End transmission and capture error
+
+        // Debugging print
+        Serial.print("Transmitted message type ");
+        Serial.print(messageType);
+        Serial.print(" with data: ");
+        Serial.print(data);
+        Serial.print(" Error: ");
+        Serial.println(error);
+    };
+
+    if (sendMessageFlag1)
+    {
+        transmitData(messageType1, adjustedTemp);
+        sendMessageFlag1 = false;
     }
     if (sendMessageFlag2)
     {
-        Wire.beginTransmission(slaveAddress); // Start I2C transmission with slave
-        Wire.write(messageType2);             // Send message type
-        Wire.write(messageLength);            // Send message length
-
-        uint8_t byteArray[sizeof(float)];               // Create byte array to store tds
-        memcpy(byteArray, &adjustedTds, sizeof(float)); // Copy tds value to byte array
-
-        for (int i = 0; i < sizeof(float); i++)
-        {
-            Wire.write(byteArray[i]); // Send tds byte by byte
-        }
-        sendMessageFlag3 = false;
-        Wire.endTransmission(); // End transmission
+        transmitData(messageType2, adjustedTds);
+        sendMessageFlag2 = false;
     }
     if (sendMessageFlag3)
     {
-        Wire.beginTransmission(slaveAddress); // Start I2C transmission with slave
-        Wire.write(messageType3);             // Send message type
-        Wire.write(messageLength);            // Send message length
-
-        uint8_t byteArray[sizeof(float)];              // Create byte array to store ph
-        memcpy(byteArray, &adjustedpH, sizeof(float)); // Copy ph value to byte array
-
-        for (int i = 0; i < sizeof(float); i++)
-        {
-            Wire.write(byteArray[i]); // Send ph byte by byte
-        }
+        transmitData(messageType3, adjustedpH);
         sendMessageFlag3 = false;
-        Wire.endTransmission(); // End transmission
     }
 }
