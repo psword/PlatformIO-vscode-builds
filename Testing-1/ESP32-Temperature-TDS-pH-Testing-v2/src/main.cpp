@@ -11,6 +11,7 @@ Intended for ESP32 Board */
 #include "OnewireTemperature.h" // Temperature Sensor Class
 #include "AnalogTds.h"          // TDS sensor class
 #include "AnalogpH.h"           // pH sensor class
+#include "esp_sleep.h"          // ESP32 deep sleep library
 
 // Pin definitions
 #define ONE_WIRE_BUS 2   // Data wire is plugged into port 2
@@ -40,6 +41,9 @@ uint8_t slaveAddress = 0x08;   // I2C Slave address
 // Define sampling intervals for sensors
 #define SAMPLING_INTERVAL 60000 // Interval for sampling (milliseconds)
 #define READING_DURATION 12000  // Duration for sampling (milliseconds)
+#define uS_TO_S_FACTOR 1000000  // Conversion factor for microseconds to seconds
+#define S_TO_MIN_FACTOR 60  // Conversion factor for seconds to minutes
+#define TIME_TO_SLEEP 10  // Amount of time to sleep
 
 // Define state machine states for each sensor
 enum SensorState
@@ -69,6 +73,7 @@ void temperatureSensorStateMachine();
 void tdsSensorStateMachine();
 void pHSensorStateMachine();
 void transmitSlave();
+void goToDeepSleep();
 
 // Create an instance of TemperatureSensor (onewire PIN, number of samples)
 // Measurement time ~1.00 seconds due to onewire library
@@ -111,8 +116,10 @@ void setup()
     Wire.begin();          // Join I2C bus as master device (message sender)
     tempSensorInstance.beginSensors(); // Start up the temperature sensor library
     pHSensorInstance.beginSensors();   // Start up the pH sensor library
+    
+    // The TDS sensor does not require initialization
 
-    // Perform initialization if code has not been executed before
+    // Perform any other custom initializations if code has not been executed before
 
     if (!codeExecuted)
     {
@@ -136,6 +143,12 @@ void loop()
     temperatureSensorStateMachine();
     tdsSensorStateMachine();
     pHSensorStateMachine();
+
+    // Check if all messages have been sent, then go to deep sleep
+    if (tempSensorState == SENSOR_OFF && tdsSensorState == SENSOR_OFF && pHSensorState == SENSOR_OFF)
+    {
+        goToDeepSleep();
+    }
 }
 
 void startTemperatureSensor()
@@ -190,7 +203,7 @@ void temperatureSensorStateMachine()
         break;
     case SENSOR_READ:
         // Read sensor data
-        adjustedTemp = tempSensorInstance.readAndAdjustTemp(); // Read and adjust temperature
+        adjustedTemp = tempSensorInstance.readAndAdjust(); // Read and adjust temperature
         // Serial.println(adjustedTemp);      // Uncomment for debugging
         // By default the library reads every ~1s, so the duration must be timed correctly according to buffer size
         if (millis() - tempStateStartTime >= READING_DURATION)
@@ -238,7 +251,7 @@ void tdsSensorStateMachine()
         // Read sensor data
         if (millis() - lastReadTime >= tdsSensorInstance.getReadDelay())
         {
-            adjustedTds = tdsSensorInstance.readAndAdjustTds(adjustedTemp);
+            adjustedTds = tdsSensorInstance.readAndAdjust(adjustedTemp);
             // Serial.println(adjustedTds); // Uncomment for debugging
             lastReadTime = millis(); // Update the last read time
         }
@@ -288,7 +301,7 @@ void pHSensorStateMachine()
         // Read sensor data
         if (millis() - lastReadTime >= pHSensorInstance.getReadDelay())
         {
-            adjustedpH = pHSensorInstance.computePHValue(adjustedTemp);
+            adjustedpH = pHSensorInstance.readAndAdjust(adjustedTemp);
             // Serial.println(adjustedpH); // Uncomment for debugging
             lastReadTime = millis(); // Update the last read time
         }
@@ -351,4 +364,13 @@ void transmitSlave()
         transmitData(messageType3, adjustedpH);
         sendMessageFlag3 = false;
     }
+}
+
+void goToDeepSleep()
+{
+    // Set the deep sleep timer (for example, 10 minutes)
+    
+    esp_sleep_enable_timer_wakeup(10 * 60 * uS_TO_S_FACTOR); // 10 minutes in microseconds
+    Serial.println("Going to deep sleep now");
+    esp_deep_sleep_start();
 }

@@ -92,7 +92,7 @@ public:
     }
 
     // Combined function for reading analog value and adjusting TDS
-    float readAndAdjustTds(float temperature)
+    float readAndAdjust(float temperature)
     {
         analogReadAction();
         float medianSensorValue = computeMedian();

@@ -105,7 +105,7 @@ public:
     }
 
     // Function to compute pH value
-    float computePHValue(float temperature)
+    float readAndAdjust(float temperature)
     {
         analogReadAction();
         float medianSensorValue = computeMedian();

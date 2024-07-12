@@ -50,7 +50,7 @@ public:
     }
 
     // Function to read and adjust temperature
-    float readAndAdjustTemp() {
+    float readAndAdjust() {
         analogReadAction();
         return computeMedian();
     }
