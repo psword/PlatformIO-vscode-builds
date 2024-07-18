@@ -7,8 +7,8 @@
 /**
  * Constructor for TdsSensor.
  */
-TdsSensor::TdsSensor(float voltageConstant, float kCoeff, float refTemp, float maxADC, int inputPin, int iterations, unsigned long readGap)
-    : VC(voltageConstant), kCoefficient(kCoeff), referenceTemp(refTemp), maxADCValue(maxADC), SENSOR_INPUT_PIN(inputPin), tdsSenseIterations(iterations), readDelay(readGap), lastReadTime(0), analogBufferIndex(0)
+TdsSensor::TdsSensor(float voltageConstant, float kCoeff, float refTemp, float maxADC, int inputPin, int iterations)
+    : VC(voltageConstant), kCoefficient(kCoeff), referenceTemp(refTemp), maxADCValue(maxADC), SENSOR_INPUT_PIN(inputPin), tdsSenseIterations(iterations), analogBufferIndex(0)
 {
     // Allocate memory for the analog buffer
     analogBuffer = new float[tdsSenseIterations];
@@ -28,31 +28,14 @@ TdsSensor::~TdsSensor()
 }
 
 /**
- * Gets the read delay value.
- */
-unsigned long TdsSensor::getReadDelay() const
-{
-    return readDelay;
-}
-
-/**
  * Reads analog value from sensor and stores in buffer.
  */
 void TdsSensor::analogReadAction()
 {
-    unsigned long currentMillis = millis(); // Assign current millis value for timer
-
-    // Check if the delay gap has passed
-    if (currentMillis - lastReadTime >= readDelay)
-    {
-        float sensorValue = analogRead(SENSOR_INPUT_PIN);
-        analogBuffer[analogBufferIndex] = sensorValue;
-        analogBufferIndex = (analogBufferIndex + 1) % tdsSenseIterations; // Circular buffer
-
-        // Update the last read time
-        lastReadTime = currentMillis;
+    float sensorValue = analogRead(SENSOR_INPUT_PIN);
+    analogBuffer[analogBufferIndex] = sensorValue;
+    analogBufferIndex = (analogBufferIndex + 1) % tdsSenseIterations; // Circular buffer
     }
-}
 
 /**
  * Computes the median reading from the buffer.

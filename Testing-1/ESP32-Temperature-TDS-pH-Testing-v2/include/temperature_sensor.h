@@ -14,7 +14,7 @@
 class TemperatureSensor : public Sensor 
 {
 private:
-    const int tempSenseIterations; // Number of measurements to take
+    const int tempSenseIterations; // Number of measurements to retain for buffer
     OneWire oneWire;
     DallasTemperature sensors;
     float* analogBuffer; // Dynamic array for buffer
@@ -24,7 +24,7 @@ public:
     /**
      * Constructor for TemperatureSensor, initializes the OneWire bus and DallasTemperature sensor.
      * @param oneWirePin The pin connected to the OneWire bus.
-     * @param iterations The number of measurements to take (default is 10).
+     * @param iterations The number of measurements to retain for buffer (default is 10).
      */
     TemperatureSensor(int oneWirePin, int iterations = 10);
 

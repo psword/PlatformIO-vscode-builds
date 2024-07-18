@@ -18,16 +18,16 @@ const uint8_t messageType4 = 0x04;   // Message type identifier
 // Define function prototypes
 void goToDeepSleep();
 
-// Create an instance of TemperatureSensor class (onewire PIN, number of samples)
+// Create an instance of TemperatureSensor class (onewire PIN, number of samples that buffer retains)
 TemperatureSensor tempSensorInstance(ONE_WIRE_BUS);
 // Providing a custom value for tempSenseIterations
 // TemperatureSensor tempSensorInstance(ONE_WIRE_BUS, 15);
 
-// Create an instance of TdsSensor class (voltage, kCoefficient, reference temp, ADC bits, GPIO PIN, number of samples, delay between read)
-TdsSensor tdsSensorInstance(3.3, 0.02, 25.0, 4096, TDS_SENSOR_BUS, 15, 650);
+// Create an instance of TdsSensor class (voltage, kCoefficient, reference temp, ADC bits, GPIO PIN, number of samples that buffer retains)
+TdsSensor tdsSensorInstance(3.3, 0.02, 25.0, 4096, TDS_SENSOR_BUS, 15);
 
-// Create an instance of pHSensor class (voltage in 1000 units, reference temp, ADC bits, GPIO PIN, number of samples, delay between read)
-pHSensor pHSensorInstance(3300, 25.0, 4096, PH_SENSOR_BUS, 15, 650);
+// Create an instance of pHSensor class (voltage in 1000 units, reference temp, ADC bits, GPIO PIN, number of samples that buffer retains)
+pHSensor pHSensorInstance(3300, 25.0, 4096, PH_SENSOR_BUS, 15);
 
 SensorStateMachine<TemperatureSensor> tempStateMachine(tempSensorInstance, TEMP_SENSOR_POWER_PIN);
 SensorStateMachine<TdsSensor> tdsStateMachine(tdsSensorInstance, TDS_SENSOR_POWER_PIN);

@@ -1,3 +1,7 @@
+/*
+* Written for ESP32 dev controller
+*/
+
 #include <Arduino.h>
 #include <Wire.h>
 #include "esp_sleep.h"
@@ -6,8 +10,9 @@
 #define DEBUGPRINT_INTERVAL 30000 // Interval to print data received from I2C slave (debug print)
 #define uS_TO_S_FACTOR 1000000    // Conversion factor for microseconds to seconds
 #define S_TO_MIN_FACTOR 60        // Conversion factor for seconds to minutes
-#define TIME_TO_SLEEP 2           // Amount of time to sleep
+#define TIME_TO_SLEEP 2           // Amount of time to sleep in minutes
 #define AWAKE_TIME 90             // Time to stay awake (in seconds)
+#define BOOT_THRESHOLD 24         // Number of boots before data transmission
 
 // Define variables
 uint8_t messageType1 = 0x01;      // Message type identifier
@@ -16,15 +21,18 @@ uint8_t messageType3 = 0x03;      // Message type identifier
 uint8_t messageType4 = 0x04;      // Message type identifier
 uint8_t messageLength = 8;        // Length of message to transmit
 uint8_t slaveAddress = 0x08;      // I2C Slave address
+bool flag = false;                // Cloud transmit flag
 RTC_DATA_ATTR float receivedFloatTemp; // Float value to receive
 RTC_DATA_ATTR float receivedFloatTds;  // Float value to receive
 RTC_DATA_ATTR float receivedFloatpH;   // Float value to receive
 RTC_DATA_ATTR bool firstBoot = true;   // To check if it's the first boot after deep sleep
+RTC_DATA_ATTR uint16_t bootCounter = 0;   // To count the number of boots
 
 
 // Function prototypes
 void receiveData(int bytes);
 float readFloatFromWire();
+void transmitDataToCloud();
 
 void setup()
 {
@@ -40,6 +48,10 @@ void setup()
 
     if (!firstBoot) {
         Serial.println("Woke up from deep sleep.");
+        bootCounter++; // Increment the boot counter
+        Serial.print("Boot Counter : ");
+        Serial.println(bootCounter);
+
     }
 
     if (firstBoot) {
@@ -52,29 +64,9 @@ void setup()
 
 void loop()
 {
-    // This will only be reached after waking up from deep sleep
-
-    // Keep the MCU awake for AWAKE_TIME seconds
-    // unsigned long startTime = millis();
-    // while (millis() - startTime < AWAKE_TIME * 1000)
-    // {
-        // Here you can add any necessary processing
-        // Ensure I2C communication is handled during this period
-
-        // For demonstration, let's print the received values
-        // Serial.print("Received Temperature: ");
-        // Serial.println(receivedFloatTemp);
-        // delay(2000);
-        // Serial.print("Received TDS: ");
-        // Serial.println(receivedFloatTds);
-        // delay(2000);
-        // Serial.print("Received pH: ");
-        // Serial.println(receivedFloatpH);
-        // delay(2000);
-    // }
-
-    // Go back to deep sleep after processing
-
+    if(!flag && bootCounter == BOOT_THRESHOLD) {
+        transmitDataToCloud();
+    }
 }
 
 void receiveData(int bytes)
@@ -95,6 +87,7 @@ void receiveData(int bytes)
         if (messageType == messageType4) // Check for sleep trigger message
         {
             Serial.println("Received sleep trigger. Going back to deep sleep...");
+            esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * S_TO_MIN_FACTOR *uS_TO_S_FACTOR);
             esp_deep_sleep_start(); // Enter deep sleep
         }
 
@@ -137,4 +130,13 @@ float readFloatFromWire()
     float value;
     memcpy(&value, byteArray, sizeof(float)); // Copy bytes to float
     return value;                             // Return reconstructed float value
+}
+
+// Placeholder function for transmitting data to the cloud
+void transmitDataToCloud()
+{
+    Serial.println("Transmitting data to cloud...");
+    // Add your cloud transmission code here
+    // For now, this is just a placeholder
+    flag = true;
 }

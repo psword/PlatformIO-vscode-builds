@@ -6,8 +6,8 @@
 #include <DFRobot_ESP_PH.h> // DFRobot pH Library v2.0
 #include <EEPROM.h>         // EEPROM library
 
-pHSensor::pHSensor(float voltageConstant, float refTemp, float maxADC, int inputPin, int iterations, unsigned long readGap)
-    : VC(voltageConstant), referenceTemp(refTemp), maxADCValue(maxADC), SENSOR_INPUT_PIN(inputPin), pHSenseIterations(iterations), readDelay(readGap), lastReadTime(0), analogBufferIndex(0)
+pHSensor::pHSensor(float voltageConstant, float refTemp, float maxADC, int inputPin, int iterations)
+    : VC(voltageConstant), referenceTemp(refTemp), maxADCValue(maxADC), SENSOR_INPUT_PIN(inputPin), pHSenseIterations(iterations), analogBufferIndex(0)
 {
     // Allocate memory for the analog buffer
     analogBuffer = new float[pHSenseIterations];
@@ -33,35 +33,16 @@ float pHSensor::getAverageVoltage() const
     return averageVoltage;
 }
 
-void pHSensor::calibrateSensors(float voltage, float temperature)
-{
-    ph.calibration(voltage, temperature); // calibration process by Serial CMD
-}
-
-unsigned long pHSensor::getReadDelay() const
-{
-    return readDelay;
-}
-
 void pHSensor::analogReadAction()
 {
-    unsigned long currentMillis = millis(); // Assign current millis value for timer
+    // Read the appropriate ADC channel based on SENSOR_INPUT_PIN
+    float sensorValue = analogRead(SENSOR_INPUT_PIN);
+    // Serial.println(sensorValue);
+    // Store the voltage value in the circular buffer
+    analogBuffer[analogBufferIndex] = sensorValue;
 
-    // Check if the delay gap has passed
-    if (currentMillis - lastReadTime >= readDelay)
-    {
-        // Read the appropriate ADC channel based on SENSOR_INPUT_PIN
-        float sensorValue = analogRead(SENSOR_INPUT_PIN);
-        // Serial.println(sensorValue);
-        // Store the voltage value in the circular buffer
-        analogBuffer[analogBufferIndex] = sensorValue;
-
-        // Update the buffer index
-        analogBufferIndex = (analogBufferIndex + 1) % pHSenseIterations;
-
-        // Update the last read time
-        lastReadTime = currentMillis;
-    }
+    // Update the buffer index
+    analogBufferIndex = (analogBufferIndex + 1) % pHSenseIterations;
 }
 
 float pHSensor::computeMedian()

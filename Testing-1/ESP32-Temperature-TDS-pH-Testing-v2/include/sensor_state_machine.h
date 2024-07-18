@@ -6,6 +6,7 @@
 #include "temperature_sensor.h"
 #include "tds_sensor.h"
 #include "ph_sensor.h"
+#include <SimpleTimer.h>
 
 enum SensorState
 {
@@ -13,6 +14,7 @@ enum SensorState
     SENSOR_INIT,
     SENSOR_STABILIZE,
     SENSOR_READ,
+    SENSOR_WAIT,
     SENSOR_SHUTDOWN
 };
 
@@ -37,7 +39,8 @@ private:
     // Member variables for sending data
     float sendFloatValue_;
     bool sendMessageFlag_;
+    unsigned long totalReadTime_;
+    SimpleTimer timer_; // Declare the SimpleTimer object
 };
-
 
 #endif // SensorStateMachine_h
