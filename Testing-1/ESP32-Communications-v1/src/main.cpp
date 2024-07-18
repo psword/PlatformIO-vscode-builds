@@ -66,6 +66,7 @@ void loop()
 {
     if(!flag && bootCounter == BOOT_THRESHOLD) {
         transmitDataToCloud();
+        bootCounter = 0;
     }
 }
 
