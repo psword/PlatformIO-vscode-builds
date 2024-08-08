@@ -1,1 +1,3 @@
 COM*.txt
+arduino_secrets.h
+donotupload.h

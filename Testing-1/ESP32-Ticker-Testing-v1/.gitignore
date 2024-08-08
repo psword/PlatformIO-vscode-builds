@@ -3,3 +3,6 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+COM*.txt
+arduino_secrets.h
+donotupload.h
