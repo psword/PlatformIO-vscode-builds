@@ -1,33 +1,41 @@
-// sensor_config.h
+/*
+ * File: sensor_config.h
+ * Description: Header file containing pin definitions, global variables, and configuration constants
+ *              for the sensor monitoring system using ESP32.
+ * Author: Philip
+ */
 
 #ifndef SENSOR_CONFIG
 #define SENSOR_CONFIG
 
-// Pin definitions
-#define ONE_WIRE_BUS 2   // Data wire is plugged into PIN 2
-#define TEMP_SENSOR_POWER_PIN 17 // Power Port is GPIO PIN 17
-#define TDS_SENSOR_BUS 4 // Data Wire is plugged into PIN 4
-#define TDS_SENSOR_POWER_PIN 16  // Power Port is GPIO PIN 16
-#define PH_SENSOR_POWER_PIN 15   // Power Port is GPIO PIN 15
-#define PH_SENSOR_BUS 13 // Data Wire is plugged into PIN 13
+// Pin Definitions
 
-// Global variables
-extern float adjustedTemp;        // Variable to store temperature
-extern bool codeExecuted;     // Flag for code execution
-extern const unsigned long readDelay;      // Delay between reads (milliseconds)
+#define ONE_WIRE_BUS 2             // GPIO pin for the OneWire data line (DS18B20 temperature sensor)
+#define TEMP_SENSOR_POWER_PIN 17   // GPIO pin for controlling power to the temperature sensor
+#define TDS_SENSOR_BUS 4           // GPIO pin for the TDS sensor data line
+#define TDS_SENSOR_POWER_PIN 16    // GPIO pin for controlling power to the TDS sensor
+#define PH_SENSOR_POWER_PIN 15     // GPIO pin for controlling power to the pH sensor
+#define PH_SENSOR_BUS 13           // GPIO pin for the pH sensor data line
 
-// Define sampling intervals for sensors
-#define SAMPLING_INTERVAL 60000 // Interval for sampling (milliseconds)
-#define READING_DURATION 10000  // Duration for sampling (milliseconds)
-#define uS_TO_S_FACTOR 1000000  // Conversion factor for microseconds to seconds
-#define S_TO_MIN_FACTOR 60  // Conversion factor for seconds to minutes
-#define TIME_TO_SLEEP 2  // Amount of time to sleep
+// Global Variables
 
-// Define message types
-extern const uint8_t messageType1;   // Message type identifier for Temperature
-extern const uint8_t messageType2;   // Message type identifier for TDS
-extern const uint8_t messageType3;   // Message type identifier for pH
-extern const uint8_t messageLength;  // Length of message to transmit
-extern const uint8_t slaveAddress;   // I2C Slave address
+extern float adjustedTemp;               // Global variable to store the adjusted temperature value
+extern bool codeExecuted;                // Flag to indicate whether the code has executed before
+extern const unsigned long readDelay;    // Global constant for the delay between sensor reads (milliseconds)
 
-#endif
+// Time and Sleep Configuration
+
+#define READING_DURATION 15000           // Duration in milliseconds for sensor sampling
+#define uS_TO_S_FACTOR 1000000           // Conversion factor from microseconds to seconds
+#define S_TO_MIN_FACTOR 60               // Conversion factor from seconds to minutes
+#define TIME_TO_SLEEP 10                  // Duration in minutes for deep sleep between readings
+
+// Message Type Definitions
+
+extern const uint8_t messageType1;       // Message type identifier for Temperature data
+extern const uint8_t messageType2;       // Message type identifier for TDS data
+extern const uint8_t messageType3;       // Message type identifier for pH data
+extern const uint8_t messageLength;      // Length of the I2C message to transmit
+extern const uint8_t slaveAddress;       // I2C Slave address for the ESP32
+
+#endif // SENSOR_CONFIG

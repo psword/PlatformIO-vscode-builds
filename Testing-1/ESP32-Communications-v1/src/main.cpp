@@ -24,7 +24,7 @@
 #define S_TO_MIN_FACTOR 60        // Conversion factor for seconds to minutes
 
 // Sleep and boot settings
-#define TIME_TO_SLEEP 2           // Time to sleep in minutes
+#define TIME_TO_SLEEP 10           // Time to sleep in minutes, should be the same as all other modules
 #define BOOT_THRESHOLD 2          // Number of boots before data transmission
 
 // Other definitions
@@ -103,11 +103,13 @@ void setup()
     };
 
     if (!isFirstBoot) {
-        Serial.println("Woke up from deep sleep.");
-        // Add sleep time to the uptime
-        uint64_t sleepMillis = TIME_TO_SLEEP * S_TO_MIN_FACTOR * mS_TO_S_FACTOR;
-        addSleepMillis(sleepMillis);
-
+        if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
+            Serial.println("Waking up from deep sleep");
+            // Add sleep time to the uptime
+            uint64_t sleepMillis = TIME_TO_SLEEP * S_TO_MIN_FACTOR * mS_TO_S_FACTOR;
+            addSleepMillis(sleepMillis);
+        }
+        
         // Update the uptime with the current running time
         updateUptime();
 
